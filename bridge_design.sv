@@ -21,7 +21,7 @@ module bridge_design(
  output logic PWRITE
 );
 
- typdef enum logic[2:0] {IDLE,READ,W_WAIT,WRITE,WRITE_P,WENABLE_P,WENABLE,RENABLE}state; 
+ typedef enum logic[2:0] {IDLE,READ,W_WAIT,WRITE,WRITE_P,WENABLE_P,WENABLE,RENABLE}state; 
 
  state cs,ns;
 
@@ -43,12 +43,12 @@ module bridge_design(
  //next state logic
  always_comb
   begin
-   uniquecase(cs)
-    ns = cs;
+   ns = cs;
+   unique case(cs)
     IDLE      : begin
                  if(valid == 1 && HWRITE == 1)
                   ns = W_WAIT;
-                 elseif(valid == 1 && HWRITE == 0)
+                 else if(valid == 1 && HWRITE == 0)
                   ns = READ;
                 end
     READ      : ns = RENABLE;
@@ -99,8 +99,7 @@ module bridge_design(
  //output logic
   always_comb
   begin
-   uniquecase(cs)
-    ns = cs;
+   unique case(cs)
     IDLE      : begin
                  PSEL = 0;
                  PENABLE = 0;
