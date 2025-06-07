@@ -1,43 +1,241 @@
 module bridge_apb_controller(
  input logic HCLK,
  input logic HRESETn,
-
+ input logic valid,
  input logic HWRITE,
- input logic HSELx,
+ input logic [2:0] HSIZE,
 
  input logic [1:0]HTRANS,
 
- input logic [31:0]HADDR,
- input logic [31:0]HWDATA,
- input logic [31:0]PRDATA,
+ input logic [31:0] HADDR,
+ input logic [WIDTH-1:0] HWDATA,
+ input logic [WIDTH-1:0] PRDATA,
+ input logic [WIDTH-1:0] CONFIG_REG_DATA,
+ input logic [WIDTH-1:0] HADDR_REG_D1,
+ input logic [WIDTH-1:0] HADDR_REG_D2,
+ input logic [WIDTH-1:0] HADDR_REG_D3,
+ input logic [WIDTH-1:0] INC_ADDR,
 
- output logic [31:0]HRDATA,
- output logic HREADY,
- output logic [1:0]HRESP,
- output logic [31:0]PADDR,
- output logic [31:0]PWDATA,
- output logic PSEL,
+ input logic flag_timer,
+ input logic flag_interruptc, 
+ input logic flag_remap_pause_controller,
+ input logic flag_slave4,
+
+ output logic [WIDTH-1:0] HRDATA,
+ output logic HREADY_OUT,
+ output logic [WIDTH-1:0] PADDR,
+ output logic [WIDTH-1:0] PWDATA,
+ output logic [SLAVES-1:0] PSEL,
  output logic PENABLE,
  output logic PWRITE
 );
 
  typedef enum logic[2:0] {IDLE,READ,W_WAIT,WRITE,WRITE_P,WENABLE_P,WENABLE,RENABLE}state; 
 
- state cs,ns;
-
- logic valid;//Given by AHB module to bridge; decides which state the system needs to be (valid = 1 if HTRANS = 01 OR 10)
 
 
- logic [31:0]haddr;
- logic hwrite;
+ state cs_reg1,cs_reg,cs,ns;
+
+
+
+ //valid signal: Given by AHB slave module; decides which state the system needs to be (valid = 1 if HTRANS = 01 OR 10)
+
+
+ logic HREADY_NXT;
+
+
+//COUNTER LOGIC REGISTERS AND VARIABLES
+logic count_write,count_read,count_read_d2,count_write_d2,count_write_d3,count_write_d4,count_write_wait,count_write_wait_d2,count_write_wait_d3,count_write_wait_d4;
+
+
+
+ logic de_select_slave,de_select_slave1,de_select_slave2;
+
+
+
+ logic [2:0] HSIZE_REG;
+ logic [2:0] HSIZE_REG_D2;
+ logic [2:0] HSIZE_REG_D3;
+ logic [2:0] HSIZE_REG_D4;
+ logic [2:0] HSIZE_REG_D5;
+
+ logic [1:0] HTRANS_REG;
+
+ integer count ;
+ logic [WIDTH-1:0] HWDATA_REG_D1;  //Delayed by one cycle
+ logic [WIDTH-1:0] HWDATA_REG_D2;  //Delayed by two cycle
+
+
+ logic HWRITE_REG,
+ logic HWRITE_REG_D2;
+ logic HWRITE_REG_D3;
+ logic HWRITE_REG_D4;
+ logic HWRITE_REG_D5;
+ logic HWRITE_REG_D6;
+
+
+
+
+//INITIALISING AND STORING VALUES IN HWRITE, HSIZE, counter REGISTERS
+
+ always_ff@(posedge HCLK, negedge HRESETn)
+  begin
+   if(!HRESTn)
+    begin
+     HWRITE_REG <= 0;
+     HWRITE_REG_D2 <= 0;
+     HWRITE_REG_D3 <= 0;
+     HWRITE_REG_D4 <= 0;
+     HWRITE_REG_D5 <= 0;
+     HWRITE_REG_D6 <= 0;
+
+     HTRANS_REG <= 0;
+
+     HSIZE_REG <= 0;
+     HSIZE_REG_D2 <= 0;
+     HSIZE_REG_D3 <= 0;
+     HSIZE_REG_D4 <= 0;
+     HSIZE_REG_D5 <= 0;
+
+
+     count_write_d2 <= 0;
+     count_write_d3 <= 0;
+     count_write_d4 <= 0;
+
+     count_read_d2 <= 0;
+
+     count_write_wait_d2 <= 0;
+     count_write_wait_d3 <= 0;
+     count_write_wait_d4 <= 0;
+    end
+   else
+    begin
+     HWRITE_REG <= HWRITE;
+     HWRITE_REG_D2 <= HWRITE_REG;
+     HWRITE_REG_D3 <= HWRITE_REG_D2;
+     HWRITE_REG_D4 <= HWRITE_REG_D3;
+     HWRITE_REG_D5 <= HWRITE_REG_D4;
+     HWRITE_REG_D6 <= HWRITE_REG_D5;
+
+     HTRANS_REG <= HTRANS;
+
+     HSIZE_REG <= HSIZE;
+     HSIZE_REG_D2 <= HSIZE_REG;
+     HSIZE_REG_D3 <= HSIZE_REG_D2;
+     HSIZE_REG_D4 <= HSIZE_REG_D3;
+     HSIZE_REG_D5 <= HSIZE_REG_D4;
+
+
+     count_write_d2 <= count_write;
+     count_write_d3 <= count_write_d2;
+     count_write_d4 <= count_write_d3;
+
+     count_read_d2 <= count_read;
+
+     count_write_wait_d2 <= count_write_wait;
+     count_write_wait_d3 <= count_write_wait_d2;
+     count_write_wait_d4 <= count_write_wait_d3;
+    end
+  end
+
+
+
+   
+
+
+
+
+
+
+ //Deselecting slave blocks
+
+ always@(PADDR)
+  begin
+   if(PADDR <= 8)
+    de_select_slave <= 1;
+   else
+    de_select_slave <= 0;
+  end
 
  always_ff@(posedge HCLK)
   begin
-   if(!HRESETn)
-    cs <= IDLE;
-   else
-    cs <= ns;
+   de_select_slave1 <= de_select_slave;
+   de_select_slave2 <= de_select_slave1;
   end
+
+
+
+
+
+
+//COUNTER LOGIC FOR COUNTING WRITES
+ always_ff@(posedge HCLK, negedge HRESETn)
+  begin
+   if(!HRESETn)
+    count_write <= 0;
+   else if(valid && (cs == IDLE) && HWRITE)
+    count_write <= count_write + 1;
+   else
+    count_write <= 0;
+  end
+
+
+//COUNTER LOGIC FOR COUNTING READS
+ always_ff@(posedge HCLK, negedge HRESETn)
+  begin
+   if(!HRESETn)
+    count_read <= 0;
+   else if(valid && (cs == IDLE) && !HWRITE)
+    count_read <= count_read + 1;
+   else
+    count_read <= 0;
+  end
+
+
+
+//COUNTER LOGIC for counting wait states
+ always_ff@(posedge HCLK, negedge HRESETn)
+  begin
+   if(!HRESETn)
+    count_write_wait <= 0;
+   else if(valid && (cs == RENABLE) && !HWRITE)
+    count_write_wait <= count_write_wait + 1;
+   else
+    count_write_wait <= 0;
+  end
+
+
+
+
+
+
+
+//Pipelining of the states stages
+//Also includes initialising HWDATA registers for wait conditions
+ always_ff@(posedge HCLK, negedge HRESETn)
+  begin
+   if(!HRESETn)
+    begin
+     cs <= IDLE;
+     cs_reg <= 0;
+     cs_reg1 <= 0;
+     HREADY_OUT <= 1;
+     HWDATA_REG_D1 <= 0;
+     HWDATA_REG_D2 <= 0;
+    end
+   else
+    begin
+     cs <= ns;
+     cs_reg <= cs;
+     cs_reg1 <= cs_reg;
+     HREADY_OUT <= HREADY_NXT;
+     HWDATA_REG_D1 <= HWDATA;
+     HWDATA_REG_D2 <= HWDATA_REG_D1;
+    end
+  end
+
+
+
 
 
  //next state logic
