@@ -33,7 +33,7 @@ module bridge_apb_controller(
 
  always_ff@(posedge HCLK)
   begin
-   if(HRESETn)
+   if(!HRESETn)
     cs <= IDLE;
    else
     cs <= ns;
@@ -103,14 +103,16 @@ module bridge_apb_controller(
     IDLE      : begin
                  PSEL = 0;
                  PENABLE = 0;
-                 HREADY = 1;
+                 PADDR = 0;
+                 PWRITE = 0;
                 end
     READ      : begin
                  PADDR = HADDR;
-                 PSEL = 1;
+                 PSEL = 0;
                  PWRITE = 0;
                  PENABLE = 0;
-                 HREADY = 0;
+                 if(flag_timer)
+                  PSEL[0] = 1;
                 end
     W_WAIT    : begin
                  PENABLE = 0;
