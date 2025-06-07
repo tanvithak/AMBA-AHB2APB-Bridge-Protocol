@@ -44,36 +44,62 @@ module bridge_apb_controller(
  always_comb
   begin
    ns = cs;
+   HREADY_NXT = 1;
    unique case(cs)
     IDLE      : begin
                  if(valid == 1 && HWRITE == 1)
-                  ns = W_WAIT;
+                  begin
+                   ns = W_WAIT;
+                   HREADY_NXT = 1;
+                  end
                  else if(valid == 1 && HWRITE == 0)
-                  ns = READ;
+                  begin
+                   ns = READ;
+                   HREADY_NXT = 0;
+                  end
                 end
-    READ      : ns = RENABLE;
+    READ      : begin
+                 ns = RENABLE;
+                 HREADY_NXT = 1;
+                end
     W_WAIT    : begin
+                 HREADY_NXT = 0;
                  if(valid)
-                  ns = WRITE_P;
+                  begin 
+                   ns = WRITE_P;
+                   HREADY_NXT = 0;
+                  end
                  else if(valid == 0)
-                  ns = WRITE;
+                  begin
+                   ns = WRITE;
+                   HREADY_NXT = 0;
+                  end
                 end
     WRITE     : begin
-                 if(valid == 0)
+                 HREADY_NXT = 0;
+                 if(valid == 0 || HWRITE == 1)
                   ns = WENABLE;
-                 else if(valid == 1)
+                 else
                   ns = WENABLE_P;
                 end
-    WRITE_P   : ns = WENABLE_P;
+    WRITE_P   : begin
+                 ns = WENABLE_P;
+                 if(HWRITE_REG)
+                  HREADY_NXT = 1;
+                 else
+                  HREADY_NXT = 0;
+                end
     WENABLE_P : begin
-                 if( {valid,HWRITE} == 2'b01)
-                  ns = WRITE;
-                 else if( {valid,HWRITE} == 2'b11)
+                 HREADY_NXT = 0;
+                 if(!HWRITE_REG_D2)
+                  ns = READ;
+                 else if(valid)
                   ns = WRITE_P;
                  else if(HWRITE == 0)
-                  ns = READ; 
+                  ns = WRITE; 
                 end
     WENABLE   : begin
+                 HREADY_NXT = 0;
                  if( {valid,HWRITE} == 2'b10 )
                   ns = READ;
                  else if( {valid,HWRITE} == 2'b11 )
@@ -85,7 +111,10 @@ module bridge_apb_controller(
                  if(valid == 0)
                   ns = IDLE;
                  else if( {valid,HWRITE} == 2'b11 )
-                  ns = WRITE_P;//OR W_WAIT
+                  begin
+                   ns = W_WAIT;
+                   HREADY_NXT = 1;
+                  end
                  else if( {valid,HWRITE} == 2'b10 )
                   ns = READ;
                 end
@@ -99,55 +128,104 @@ module bridge_apb_controller(
  //output logic
   always_comb
   begin
+   PSEL = (de_select_slave) ? 0 : PSEL;
    unique case(cs)
     IDLE      : begin
                  PSEL = 0;
                  PENABLE = 0;
-                 PADDR = 0;
                  PWRITE = 0;
                 end
     READ      : begin
-                 PADDR = HADDR;
                  PSEL = 0;
                  PWRITE = 0;
                  PENABLE = 0;
                  if(flag_timer)
                   PSEL[0] = 1;
+                 else if(flag_interruptc)
+                  PSEL[1] = 1;
+                 else if(flag_remap_pause_controller)
+                  PSEL[2] = 1;
+                 if(flag_slave4)
+                  PSEL[3] = 1;
                 end
     W_WAIT    : begin
                  PENABLE = 0;
-                 haddr = HADDR;
-                 hwrite = HWRITE;
+                 PWRITE = 0;
+                 if(flag_timer)
+                  PSEL[0] = 1;
+                 else if(flag_interruptc)
+                  PSEL[1] = 1;
+                 else if(flag_remap_pause_controller)
+                  PSEL[2] = 1;
+                 if(flag_slave4)
+                  PSEL[3] = 1;
                 end
     WRITE     : begin
-                 PADDR = haddr;
-                 PSEL = 1;
+                 PSEL = 0;
                  PENABLE = 0;
                  PWRITE = 1;
-                 HREADY = 0;
+                 if(flag_timer)
+                  PSEL[0] = 1;
+                 else if(flag_interruptc)
+                  PSEL[1] = 1;
+                 else if(flag_remap_pause_controller)
+                  PSEL[2] = 1;
+                 if(flag_slave4)
+                  PSEL[3] = 1;
                 end
     WRITE_P   : begin
-                 PADDR = haddr;
-                 PSEL = 1;
                  PWRITE = 1;
-                 PWDATA = HWDATA;
                  PENABLE = 0;
-                 HREADY = 0;
-                 hwrite = HWRITE;
+                 if(flag_timer)
+                  PSEL[0] = 1;
+                 else if(flag_interruptc)
+                  PSEL[1] = 1;
+                 else if(flag_remap_pause_controller)
+                  PSEL[2] = 1;
+                 if(flag_slave4)
+                  PSEL[3] = 1;
                 end
     WENABLE_P : begin
                  PENABLE = 1;
-                 HREADY = 1;
+                 PWRITE = PWRITE;
+                 if(flag_timer)
+                  PSEL[0] = 1;
+                 else if(flag_interruptc)
+                  PSEL[1] = 1;
+                 else if(flag_remap_pause_controller)
+                  PSEL[2] = 1;
+                 if(flag_slave4)
+                  PSEL[3] = 1;
                 end
     WENABLE   : begin
                  PENABLE = 1;
-                 HREADY = 1;
+                 PWRITE = PWRITE;
+                 if(flag_timer)
+                  PSEL[0] = 1;
+                 else if(flag_interruptc)
+                  PSEL[1] = 1;
+                 else if(flag_remap_pause_controller)
+                  PSEL[2] = 1;
+                 if(flag_slave4)
+                  PSEL[3] = 1;
                 end
     RENABLE   : begin
                  PENABLE = 1;
-                 HRDATA = PRDATA;
-                 HREADY = 1;
+                 PWRITE = PWRITE;
+                 if(flag_timer)
+                  PSEL[0] = 1;
+                 else if(flag_interruptc)
+                  PSEL[1] = 1;
+                 else if(flag_remap_pause_controller)
+                  PSEL[2] = 1;
+                 if(flag_slave4)
+                  PSEL[3] = 1;
                 end
+    default   : begin
+                 PENABLE = PENABLE;
+                 PWRITE = PWRITE;
+                 PSELx = 0;
+                end 
 
    endcase
   end
