@@ -525,7 +525,7 @@ logic count_write,count_read,count_read_d2,count_write_d2,count_write_d3,count_w
                                   if(count_read_d2)
                                    endianess_read(HSIZE_REG_D2,PADDR[1:0]);
                                   else
-                                    endianess_read(HSIZE_REG_D4,PADDR[1:0]); 
+                                   endianess_read(HSIZE_REG_D4,PADDR[1:0]); 
                                  end
                  default       : HRDATA = 0;
               endcase
