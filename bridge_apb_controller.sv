@@ -429,4 +429,74 @@ logic count_write,count_read,count_read_d2,count_write_d2,count_write_d3,count_w
 
    endcase
   end
+
+
+
+
+ //Little Endianness on HWDATA and effect on PWDATA
+  task endianess(input [2:0]hsize,input [31:0]hwdata,input [1:0]addr);
+   begin
+    case(hsize)
+     3'b000  : begin
+                case(addr)
+                 `ADDR_OFFSET_BYTE_0 : PWDATA = hwdata[7:0];
+                 `ADDR_OFFSET_BYTE_1 : PWDATA = hwdata[15:8];
+                 `ADDR_OFFSET_BYTE_2 : PWDATA = hwdata[23:16];
+                 `ADDR_OFFSET_BYTE_3 : PWDATA = hwdata[31:24];
+                  default            : PWDATA = 0;
+                endcase
+               end
+     3'b001  : begin
+                case(addr)
+                 `ADDR_OFFSET_HFWORD_0 : PWDATA = hwdata[15:0];
+                 `ADDR_OFFSET_HFWORD_2 : PWDATA = hwdata[31:16];
+                  default              : PWDATA = 0;
+                endcase
+               end
+     3'b010  : begin
+                 case(addr)
+                   `ADDR_OFFSET_WORD : PWDATA = hwdata;
+                    default          : PWDATA = 0;
+                 endcase
+               end
+     default : PWDATA = 0;
+    endcase
+   end
+  endtask
+
+
+
+
+
+
+  //Little Endianness on PRDATA
+ task endianess_read(input [2:0]hsize,input [1:0]addr);
+   begin
+    case(hsize)
+     3'b000  : begin
+                case(addr)
+                 `ADDR_OFFSET_BYTE_0 : HRDATA = PRDATA[7:0];
+                 `ADDR_OFFSET_BYTE_1 : HRDATA = PRDATA[15:8];
+                 `ADDR_OFFSET_BYTE_2 : HRDATA = PRDATA[23:16];
+                 `ADDR_OFFSET_BYTE_3 : HRDATA = PRDATA[31:24];
+                  default            : HRDATA = 0;
+                endcase
+               end
+     3'b001  : begin
+                case(addr)
+                 `ADDR_OFFSET_HFWORD_0 : HRDATA = PRDATA[15:0];
+                 `ADDR_OFFSET_HFWORD_2 : HRDATA = PRDATA[31:16];
+                  default              : HRDATA = 0;
+                endcase
+               end
+     3'b010  : begin
+                 case(addr)
+                   `ADDR_OFFSET_WORD : HRDATA = PRDATA;
+                    default          : HRDATA = 0;
+                 endcase
+               end
+     default : HRDATA = 0;
+    endcase
+   end
+  endtask
 endmodule
