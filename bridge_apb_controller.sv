@@ -1,3 +1,5 @@
+`include "definitions.sv"
+
 module bridge_apb_controller(
  input logic HCLK,
  input logic HRESETn,
@@ -8,24 +10,24 @@ module bridge_apb_controller(
  input logic [1:0]HTRANS,
 
  input logic [31:0] HADDR,
- input logic [WIDTH-1:0] HWDATA,
- input logic [WIDTH-1:0] PRDATA,
- input logic [WIDTH-1:0] CONFIG_REG_DATA,
- input logic [WIDTH-1:0] HADDR_REG_D1,
- input logic [WIDTH-1:0] HADDR_REG_D2,
- input logic [WIDTH-1:0] HADDR_REG_D3,
- input logic [WIDTH-1:0] INC_ADDR,
+ input logic [`WIDTH-1:0] HWDATA,
+ input logic [`WIDTH-1:0] PRDATA,
+ input logic [`WIDTH-1:0] CONFIG_REG_DATA,
+ input logic [`WIDTH-1:0] HADDR_REG_D1,
+ input logic [`WIDTH-1:0] HADDR_REG_D2,
+ input logic [`WIDTH-1:0] HADDR_REG_D3,
+ input logic [`WIDTH-1:0] INC_ADDR,
 
  input logic flag_timer,
  input logic flag_interruptc, 
  input logic flag_remap_pause_controller,
  input logic flag_slave4,
 
- output logic [WIDTH-1:0] HRDATA,
+ output logic [`WIDTH-1:0] HRDATA,
  output logic HREADY_OUT,
- output logic [WIDTH-1:0] PADDR,
- output logic [WIDTH-1:0] PWDATA,
- output logic [SLAVES-1:0] PSEL,
+ output logic [`WIDTH-1:0] PADDR,
+ output logic [`WIDTH-1:0] PWDATA,
+ output logic [`SLAVES-1:0] PSEL,
  output logic PENABLE,
  output logic PWRITE
 );
