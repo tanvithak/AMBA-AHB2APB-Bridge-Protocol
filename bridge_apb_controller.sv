@@ -499,4 +499,37 @@ logic count_write,count_read,count_read_d2,count_write_d2,count_write_d3,count_w
     endcase
    end
   endtask
+
+
+
+
+ //BLOCK FOR HRDATA
+   `ifndef WRAPPING_INCR
+     always_comb
+       begin
+        case(cs)
+          IDLE,W_WAIT,WENABLE_P,READ: HRDATA = 0;
+          RENABLE        : begin
+                             if(count_read_d2)
+                              endianess_read(HSIZE_REG_D2,PADDR[1:0]);
+                             else 
+                              endianess_read(HSIZE_REG_D3,PADDR[1:0]);
+                           end
+         endcase
+        end
+      `else
+         always_comb
+           begin
+             case(pre_state)
+                RENABLE        : begin
+                                  if(count_read_d2)
+                                   endianess_read(HSIZE_REG_D2,PADDR[1:0]);
+                                  else
+                                    endianess_read(HSIZE_REG_D4,PADDR[1:0]); 
+                                 end
+                 default       : HRDATA = 0;
+              endcase
+            end
+      `endif 
+
 endmodule
