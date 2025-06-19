@@ -64,11 +64,11 @@ logic count_write,count_read,count_read_d2,count_write_d2,count_write_d3,count_w
  logic [1:0] HTRANS_REG;
 
  integer count ;
- logic [WIDTH-1:0] HWDATA_REG_D1;  //Delayed by one cycle
- logic [WIDTH-1:0] HWDATA_REG_D2;  //Delayed by two cycle
+ logic [`WIDTH-1:0] HWDATA_REG_D1;  //Delayed by one cycle
+ logic [`WIDTH-1:0] HWDATA_REG_D2;  //Delayed by two cycle
 
 
- logic HWRITE_REG,
+ logic HWRITE_REG;
  logic HWRITE_REG_D2;
  logic HWRITE_REG_D3;
  logic HWRITE_REG_D4;
@@ -82,7 +82,7 @@ logic count_write,count_read,count_read_d2,count_write_d2,count_write_d3,count_w
 
  always_ff@(posedge HCLK, negedge HRESETn)
   begin
-   if(!HRESTn)
+   if(!HRESETn)
     begin
      HWRITE_REG <= 0;
      HWRITE_REG_D2 <= 0;
@@ -219,8 +219,8 @@ logic count_write,count_read,count_read_d2,count_write_d2,count_write_d3,count_w
    if(!HRESETn)
     begin
      cs <= IDLE;
-     cs_reg <= 0;
-     cs_reg1 <= 0;
+     cs_reg <= IDLE;
+     cs_reg1 <= IDLE;
      HREADY_OUT <= 1;
      HWDATA_REG_D1 <= 0;
      HWDATA_REG_D2 <= 0;
@@ -424,7 +424,7 @@ logic count_write,count_read,count_read_d2,count_write_d2,count_write_d3,count_w
     default   : begin
                  PENABLE = PENABLE;
                  PWRITE = PWRITE;
-                 PSELx = 0;
+                 PSEL = 0;
                 end 
 
    endcase
@@ -520,7 +520,7 @@ logic count_write,count_read,count_read_d2,count_write_d2,count_write_d3,count_w
       `else
          always_comb
            begin
-             case(pre_state)
+             case(cs)
                 RENABLE        : begin
                                   if(count_read_d2)
                                    endianess_read(HSIZE_REG_D2,PADDR[1:0]);
@@ -531,5 +531,63 @@ logic count_write,count_read,count_read_d2,count_write_d2,count_write_d3,count_w
               endcase
             end
       `endif 
+
+
+//Output logic for Paddr logic
+  `ifndef WRAPPING_INCR
+    always_comb
+     begin
+	if(~HRESETn)
+	 PADDR = 0;
+        else 
+         begin
+          PADDR = PADDR;
+          case(cs)
+	    IDLE      : PADDR = PADDR;
+	    W_WAIT    : PADDR = PADDR;
+	    WRITE_P   : PADDR = HADDR_REG_D1;
+	    WENABLE_P : PADDR = PADDR;
+	    WRITE     : PADDR = HADDR_REG_D1;
+	    WENABLE   : PADDR = PADDR;
+	    READ      : begin
+                         if(cs_reg == IDLE)
+                           PADDR = INC_ADDR;
+                         else
+		           PADDR = HADDR_REG_D2;
+			end
+	    RENABLE   : PADDR = PADDR;
+	  endcase
+         end
+      end
+  `else 
+     always_comb
+      begin
+       if(~HRESETn)
+	PADDR = 0;
+       else 
+	 begin
+	  if(count_read & ~HWRITE)
+	    PADDR = INC_ADDR;
+	  else if(count_write_d2)
+            PADDR = HADDR_REG_D1;
+	  else 
+           begin
+            PADDR = PADDR;
+            case(cs)
+	     IDLE      : PADDR = PADDR;
+	     W_WAIT    : PADDR = PADDR;
+	     WRITE_P   : PADDR = HADDR_REG_D2;
+	     WENABLE_P : PADDR = PADDR;
+	     WRITE     : PADDR = HADDR_REG_D2;
+	     WENABLE   : PADDR = PADDR;
+	     READ      : PADDR = INC_ADDR;
+	     RENABLE   : PADDR = PADDR;
+	    endcase
+           end
+
+	  end
+	 end
+  `endif
+
 
 endmodule
